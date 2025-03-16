@@ -1,26 +1,12 @@
 package com.example.stock4.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,10 +16,50 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.stock4.R
+import com.example.stock4.data.StockDataManager
+import com.example.stock4.data.api.StockAnalysisResult
+import com.example.stock4.data.model.StockItem
+import kotlinx.coroutines.launch
+import androidx.compose.material3.HorizontalDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AIAnalysisScreen(navController: NavController) {
+fun AIAnalysisScreen(navController: NavController, stockCode: String) {
+    // 获取股票信息
+    val stock = remember { StockDataManager.getStockByCode(stockCode) }
+    
+    // 分析结果状态
+    var analysisResult by remember { mutableStateOf<StockAnalysisResult?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    // 协程作用域
+    val coroutineScope = rememberCoroutineScope()
+    
+    // 加载分析结果
+    LaunchedEffect(stockCode) {
+        isLoading = true
+        errorMessage = null
+        
+        try {
+            // 获取股票信息
+            val stockInfo = StockDataManager.getStockByCode(stockCode)
+            
+            // 如果股票已有分析结果，直接使用
+            if (stockInfo?.analysisResult != null) {
+                analysisResult = stockInfo.analysisResult
+                isLoading = false
+            } else {
+                // 否则获取详细分析
+                analysisResult = StockDataManager.getStockDetailedAnalysis(stockCode)
+            }
+        } catch (e: Exception) {
+            errorMessage = "获取分析结果失败: ${e.message}"
+        } finally {
+            isLoading = false
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -45,83 +71,172 @@ fun AIAnalysisScreen(navController: NavController) {
                             contentDescription = "返回"
                         )
                     }
+                },
+                actions = {
+                    // 添加刷新按钮
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                isLoading = true
+                                errorMessage = null
+                                try {
+                                    analysisResult = StockDataManager.getStockDetailedAnalysis(stockCode)
+                                } catch (e: Exception) {
+                                    errorMessage = "刷新分析结果失败: ${e.message}"
+                                } finally {
+                                    isLoading = false
+                                }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_refresh),
+                            contentDescription = "刷新",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
         ) {
-            // 股票基本信息
-            Text(
-                text = "贵州茅台 (600519)",
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            
-            // AI投资建议
-            AnalysisCard(
-                title = "AI投资建议",
-                content = "基于技术面和基本面分析，建议持有该股票。短期内可能会有小幅波动，但长期来看具有较好的投资价值。",
-                backgroundColor = Color(0xFFE3F2FD)
-            )
-            
-            // 风险评估
-            AnalysisCard(
-                title = "风险评估",
-                content = "风险等级：中等\n• 市场风险：受大盘波动影响较大\n• 行业风险：白酒行业竞争加剧\n• 公司风险：估值较高，业绩增长压力大",
-                backgroundColor = Color(0xFFFFF8E1)
-            )
-            
-            // 技术分析
-            AnalysisCard(
-                title = "技术面分析",
-                content = "• K线图显示处于上升通道\n• MACD指标显示多头趋势\n• KDJ指标显示超买状态\n• 成交量逐渐放大，说明上涨动能较强",
-                backgroundColor = Color(0xFFE8F5E9)
-            )
-            
-            // 基本面分析
-            AnalysisCard(
-                title = "基本面分析",
-                content = "公司财务状况良好，营收持续增长。\n• 营收：同比增长15.3%\n• 净利润：同比增长12.7%\n• 毛利率：保持在75%以上\n• 市盈率：35.6倍，高于行业平均水平",
-                backgroundColor = Color(0xFFE1F5FE)
-            )
-            
-            // 添加收藏按钮
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            if (isLoading) {
+                // 显示加载中
                 Box(
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("正在分析股票，请稍候...")
+                    }
+                }
+            } else if (errorMessage != null) {
+                // 显示错误信息
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = errorMessage ?: "未知错误",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            } else if (stock != null && analysisResult != null) {
+                // 显示分析结果
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // 股票基本信息
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_favorite),
-                            contentDescription = "收藏",
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.padding(horizontal = 4.dp))
-                        Text(
-                            text = "收藏分析报告",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${stock.name} (${stock.code})",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stock.price,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                Text(
+                                    text = stock.changePercent,
+                                    color = if (stock.isUp) Color(0xFF4CAF50) else Color(0xFFE53935),
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+                        
+                        // 显示建议标签
+                        val recommendationColor = when(analysisResult?.recommendation) {
+                            "买入" -> Color(0xFF4CAF50)
+                            "卖出" -> Color(0xFFE53935)
+                            else -> Color(0xFFFFA000)
+                        }
+                        
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = recommendationColor
+                            )
+                        ) {
+                            Text(
+                                text = analysisResult?.recommendation ?: "持有",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
                     }
+                    
+                    HorizontalDivider()
+                    
+                    // AI投资建议
+                    AnalysisCard(
+                        title = "AI投资建议",
+                        content = analysisResult?.investmentAdvice ?: "暂无投资建议",
+                        backgroundColor = Color(0xFFE3F2FD)
+                    )
+                    
+                    // 风险评估
+                    AnalysisCard(
+                        title = "风险评估",
+                        content = analysisResult?.riskAssessment ?: "暂无风险评估",
+                        backgroundColor = Color(0xFFFFF8E1)
+                    )
+                    
+                    // 技术分析
+                    AnalysisCard(
+                        title = "技术面分析",
+                        content = analysisResult?.technicalAnalysis ?: "暂无技术面分析",
+                        backgroundColor = Color(0xFFE8F5E9)
+                    )
+                    
+                    // 基本面分析
+                    AnalysisCard(
+                        title = "基本面分析",
+                        content = analysisResult?.fundamentalAnalysis ?: "暂无基本面分析",
+                        backgroundColor = Color(0xFFF3E5F5)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // 免责声明
+                    Text(
+                        text = "免责声明：本分析仅供参考，不构成投资建议。投资有风险，入市需谨慎。",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+            } else {
+                // 显示未找到股票信息
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("未找到股票信息")
                 }
             }
         }
@@ -138,27 +253,27 @@ fun AnalysisCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = backgroundColor
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(backgroundColor)
                 .padding(16.dp)
         ) {
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = Color.DarkGray
+                fontSize = 16.sp
             )
             
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
                 text = content,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
+                fontSize = 14.sp
             )
         }
     }

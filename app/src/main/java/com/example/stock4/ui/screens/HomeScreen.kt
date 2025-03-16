@@ -1,32 +1,14 @@
 package com.example.stock4.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,34 +21,39 @@ import com.example.stock4.R
 import com.example.stock4.data.StockDataManager
 import com.example.stock4.navigation.Screen
 import com.example.stock4.ui.components.BottomNavBar
-
-// 股票数据模型
-data class StockItem(
-    val name: String,
-    val code: String,
-    val price: String,
-    val changePercent: String,
-    val isUp: Boolean
-)
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.stock4.data.model.StockItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController) {
-    // 使用StockDataManager获取股票数据
-    // 这里只显示前5条数据作为示例
-    val stockList = remember {
-        mutableStateOf(StockDataManager.getAllStocks().take(5))
+    // 使用StockDataManager获取自选股数据
+    val favoriteStocks = remember { mutableStateOf(StockDataManager.getFavoriteStocks()) }
+    
+    // 添加分析状态
+    var isAnalyzing by remember { mutableStateOf(false) }
+    
+    // 添加Snackbar状态
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    
+    // 添加一个副作用，当自选股列表变化时更新UI
+    LaunchedEffect(StockDataManager.getFavoriteStocks().size) {
+        favoriteStocks.value = StockDataManager.getFavoriteStocks()
     }
 
-    // 如果股票列表为空，显示默认数据
-    if (stockList.value.isEmpty()) {
-        stockList.value = listOf(
+    // 如果自选股列表为空，显示默认数据
+    val displayStocks = if (favoriteStocks.value.isEmpty()) {
+        listOf(
             StockItem("贵州茅台", "600519", "1789.00", "+2.35%", true),
             StockItem("腾讯控股", "00700", "368.40", "+1.52%", true),
             StockItem("阿里巴巴", "09988", "75.80", "-0.65%", false),
             StockItem("中国平安", "601318", "42.56", "-1.23%", false),
             StockItem("宁德时代", "300750", "135.20", "+3.45%", true)
         )
+    } else {
+        favoriteStocks.value
     }
 
     Scaffold(
@@ -88,35 +75,111 @@ fun HomeScreen(navController: NavController) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate(Screen.Search.route) },
+                onClick = {
+                    // 修改为调用Deepseek API分析股票
+                    if (!isAnalyzing) {
+                        isAnalyzing = true
+                        coroutineScope.launch {
+                            try {
+                                // 使用 launch 块内部调用 suspend 函数
+                                snackbarHostState.showSnackbar("正在分析股票，请稍候...")
+                                StockDataManager.analyzeAllFavoriteStocks()
+                                snackbarHostState.showSnackbar("分析完成")
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("分析失败: ${e.message}")
+                            } finally {
+                                isAnalyzing = false
+                            }
+                        }
+                    }
+                },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_add),
-                    contentDescription = "添加",
+                    painter = painterResource(id = R.drawable.ic_stock),
+                    contentDescription = "分析股票",
                     tint = Color.White
                 )
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp)
-        ) {
-            items(stockList.value) { stock ->
-                StockCard(stock = stock, onItemClick = {
-                    // 点击股票项跳转到AI分析页面
-                    navController.navigate(Screen.AIAnalysis.route)
-                })
+        if (favoriteStocks.value.isEmpty() && displayStocks.isEmpty()) {
+            // 显示空状态
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_empty),
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp),
+                        tint = Color.Gray
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "暂无自选股",
+                        color = Color.Gray,
+                        fontSize = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Button(
+                        onClick = { navController.navigate(Screen.Search.route) }
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_add),
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("添加自选股")
+                        }
+                    }
+                }
+            }
+        } else {
+            // 显示自选股列表
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp)
+            ) {
+                items(displayStocks) { stock ->
+                    StockCard(
+                        stock = stock, 
+                        onItemClick = {
+                            // 点击股票项跳转到AI分析页面，传递股票代码
+                            navController.navigate(Screen.AIAnalysis.createRoute(stock.code))
+                        },
+                        onDeleteClick = {
+                            // 从自选股中删除
+                            StockDataManager.removeFromFavorites(stock.code)
+                            // 更新UI
+                            favoriteStocks.value = StockDataManager.getFavoriteStocks()
+                        }
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StockCard(stock: StockItem, onItemClick: () -> Unit) {
+fun StockCard(
+    stock: StockItem, 
+    onItemClick: () -> Unit,
+    onDeleteClick: () -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -143,9 +206,39 @@ fun StockCard(stock: StockItem, onItemClick: () -> Unit) {
                     color = Color.Gray,
                     fontSize = 14.sp
                 )
+                
+                // 添加分析建议显示
+                if (stock.isAnalyzing) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "分析中...",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                } else if (stock.recommendation.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val recommendationColor = when(stock.recommendation) {
+                        "买入" -> Color(0xFF4CAF50)
+                        "卖出" -> Color(0xFFE53935)
+                        else -> Color(0xFFFFA000)
+                    }
+                    Text(
+                        text = "AI建议: ${stock.recommendation}",
+                        fontSize = 12.sp,
+                        color = recommendationColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             
-            // 股票价格和涨跌幅
+            // 价格和涨跌幅
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = stock.price,
@@ -153,18 +246,29 @@ fun StockCard(stock: StockItem, onItemClick: () -> Unit) {
                     fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = if (stock.isUp) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                            shape = RoundedCornerShape(4.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                Text(
+                    text = stock.changePercent,
+                    color = if (stock.isUp) Color(0xFF4CAF50) else Color(0xFFE53935),
+                    fontSize = 14.sp
+                )
+                
+                // 删除按钮
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = onDeleteClick,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_delete),
+                        contentDescription = "删除",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = stock.changePercent,
-                        color = if (stock.isUp) Color(0xFF4CAF50) else Color(0xFFF44336),
-                        fontSize = 14.sp
+                        text = "删除",
+                        fontSize = 12.sp,
+                        color = Color.Gray
                     )
                 }
             }

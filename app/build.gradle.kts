@@ -57,4 +57,14 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    // 添加 OkHttp 相关依赖
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+    
+    // 添加 JSON 依赖
+    implementation("org.json:json:20230618")
+    
+    // 添加协程依赖
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }

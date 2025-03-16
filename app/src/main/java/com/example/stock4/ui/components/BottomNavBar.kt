@@ -20,10 +20,9 @@ data class BottomNavItem(
     val icon: Int
 )
 
-// 底部导航栏项目列表
+// 底部导航栏项目列表 - 移除了"分析"项
 val bottomNavItems = listOf(
     BottomNavItem("首页", Screen.Home.route, R.drawable.ic_home),
-    BottomNavItem("分析", Screen.AIAnalysis.route, R.drawable.ic_analysis),
     BottomNavItem("我的", Screen.Profile.route, R.drawable.ic_profile)
 )
 

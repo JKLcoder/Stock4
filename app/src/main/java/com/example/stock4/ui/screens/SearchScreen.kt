@@ -23,14 +23,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +46,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.stock4.R
 import com.example.stock4.data.StockDataManager
+import com.example.stock4.data.model.StockItem
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +62,10 @@ fun SearchScreen(navController: NavController) {
             StockDataManager.searchStocks(searchQuery)
         }
     }
+    
+    // 添加SnackBar状态 - 修复：显式指定类型
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -70,7 +80,8 @@ fun SearchScreen(navController: NavController) {
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -138,11 +149,22 @@ fun SearchScreen(navController: NavController) {
                 } else {
                     LazyColumn {
                         items(searchResults) { stock ->
-                            SearchResultItem(stock = stock, onAddClick = {
-                                // 添加到自选股
-                                // 这里可以添加保存自选股的逻辑
-                                navController.navigateUp()
-                            })
+                            SearchResultItem(
+                                stock = stock, 
+                                isInFavorites = StockDataManager.isInFavorites(stock.code),
+                                onAddClick = {
+                                    // 添加到自选股
+                                    val added = StockDataManager.addToFavorites(stock)
+                                    coroutineScope.launch {
+                                        // 修复：正确使用showSnackbar方法
+                                        if (added) {
+                                            snackbarHostState.showSnackbar("已添加 ${stock.name} 到自选股")
+                                        } else {
+                                            snackbarHostState.showSnackbar("${stock.name} 已在自选股中")
+                                        }
+                                    }
+                                }
+                            )
                             
                             Divider()
                         }
@@ -154,7 +176,11 @@ fun SearchScreen(navController: NavController) {
 }
 
 @Composable
-fun SearchResultItem(stock: StockItem, onAddClick: () -> Unit) {
+fun SearchResultItem(
+    stock: StockItem, 
+    isInFavorites: Boolean,
+    onAddClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -181,9 +207,11 @@ fun SearchResultItem(stock: StockItem, onAddClick: () -> Unit) {
         // 添加按钮
         IconButton(onClick = onAddClick) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_add),
-                contentDescription = "添加",
-                tint = MaterialTheme.colorScheme.primary,
+                painter = painterResource(
+                    id = if (isInFavorites) R.drawable.ic_check else R.drawable.ic_add
+                ),
+                contentDescription = if (isInFavorites) "已添加" else "添加",
+                tint = if (isInFavorites) Color.Green else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
         }

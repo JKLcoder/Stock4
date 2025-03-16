@@ -2,9 +2,11 @@ package com.example.stock4.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.stock4.ui.screens.AIAnalysisScreen
 import com.example.stock4.ui.screens.HomeScreen
 import com.example.stock4.ui.screens.ProfileScreen
@@ -17,7 +19,9 @@ sealed class Screen(val route: String) {
     object Splash : Screen("splash")
     object Home : Screen("home")
     object Search : Screen("search")
-    object AIAnalysis : Screen("ai_analysis")
+    object AIAnalysis : Screen("ai_analysis/{stockCode}") {
+        fun createRoute(stockCode: String) = "ai_analysis/$stockCode"
+    }
     object Profile : Screen("profile")
     object Settings : Screen("settings")
 }
@@ -40,8 +44,12 @@ fun AppNavigation(
         composable(Screen.Search.route) {
             SearchScreen(navController = navController)
         }
-        composable(Screen.AIAnalysis.route) {
-            AIAnalysisScreen(navController = navController)
+        composable(
+            route = Screen.AIAnalysis.route,
+            arguments = listOf(navArgument("stockCode") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: ""
+            AIAnalysisScreen(navController = navController, stockCode = stockCode)
         }
         composable(Screen.Profile.route) {
             ProfileScreen(navController = navController)
