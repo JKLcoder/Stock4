@@ -41,21 +41,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.stock4.R
+import com.example.stock4.data.StockDataManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(navController: NavController) {
     var searchQuery by remember { mutableStateOf("") }
     
-    // 模拟搜索结果
+    // 使用StockDataManager进行搜索
     val searchResults = remember(searchQuery) {
         if (searchQuery.isBlank()) {
             emptyList()
         } else {
-            listOf(
-                StockItem("贵州茅台", "600519", "1789.00", "+2.35%", true),
-                StockItem("腾讯控股", "00700", "368.40", "+1.52%", true)
-            )
+            StockDataManager.searchStocks(searchQuery)
         }
     }
 
@@ -119,21 +117,35 @@ fun SearchScreen(navController: NavController) {
             // 搜索结果
             if (searchQuery.isNotEmpty()) {
                 Text(
-                    text = "搜索结果",
+                    text = "搜索结果 (${searchResults.size})",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                LazyColumn {
-                    items(searchResults) { stock ->
-                        SearchResultItem(stock = stock, onAddClick = {
-                            // 添加到自选股
-                            navController.navigateUp()
-                        })
-                        
-                        Divider()
+                if (searchResults.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "未找到相关股票",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(vertical = 32.dp)
+                        )
+                    }
+                } else {
+                    LazyColumn {
+                        items(searchResults) { stock ->
+                            SearchResultItem(stock = stock, onAddClick = {
+                                // 添加到自选股
+                                // 这里可以添加保存自选股的逻辑
+                                navController.navigateUp()
+                            })
+                            
+                            Divider()
+                        }
                     }
                 }
             }

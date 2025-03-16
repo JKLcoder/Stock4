@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.stock4.R
+import com.example.stock4.data.StockDataManager
 import com.example.stock4.navigation.Screen
 import com.example.stock4.ui.components.BottomNavBar
 
@@ -51,16 +52,20 @@ data class StockItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController) {
-    // 模拟股票数据
+    // 使用StockDataManager获取股票数据
+    // 这里只显示前5条数据作为示例
     val stockList = remember {
-        mutableStateOf(
-            listOf(
-                StockItem("贵州茅台", "600519", "1789.00", "+2.35%", true),
-                StockItem("腾讯控股", "00700", "368.40", "+1.52%", true),
-                StockItem("阿里巴巴", "09988", "75.80", "-0.65%", false),
-                StockItem("中国平安", "601318", "42.56", "-1.23%", false),
-                StockItem("宁德时代", "300750", "135.20", "+3.45%", true)
-            )
+        mutableStateOf(StockDataManager.getAllStocks().take(5))
+    }
+
+    // 如果股票列表为空，显示默认数据
+    if (stockList.value.isEmpty()) {
+        stockList.value = listOf(
+            StockItem("贵州茅台", "600519", "1789.00", "+2.35%", true),
+            StockItem("腾讯控股", "00700", "368.40", "+1.52%", true),
+            StockItem("阿里巴巴", "09988", "75.80", "-0.65%", false),
+            StockItem("中国平安", "601318", "42.56", "-1.23%", false),
+            StockItem("宁德时代", "300750", "135.20", "+3.45%", true)
         )
     }
 
